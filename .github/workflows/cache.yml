@@ -57,6 +57,7 @@ jobs:
           echo "### Exercise /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
           echo "### Resolve a ROOT library directory to exercise broader cache content ###"
+          ls /cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so || true
           root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
           if [ ! -e "${root_tree_lib}" ]; then
             root_tree_lib=$(find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so' -print 2>/dev/null | sort | tail -n 1)
@@ -174,6 +175,7 @@ jobs:
           echo "### Reuse /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
           echo "### Resolve the ROOT library directory used for targeted reuse ###"
+          ls /cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so || true
           root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
           if [ ! -e "${root_tree_lib}" ]; then
             root_tree_lib=$(find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so' -print 2>/dev/null | sort | tail -n 1)
