@@ -28,7 +28,7 @@ The following parameters are supported:
 - `cvmfs_auto_update`: If set to no, disables the automatic update of file catalogs.
 - `cvmfs_backoff_init`: Seconds for the maximum initial backoff when retrying to download data.
 - `cvmfs_backoff_max`: Maximum backoff in seconds when retrying to download data.
-- `cvmfs_cache_base`: Location (directory) of the CernVM-FS cache.
+- `cvmfs_cache_base`: Location (directory) of the CernVM-FS cache. The `cvmfs` user must be able to traverse all parent directories and write this directory; on GitHub-hosted runners prefer a path under `/tmp` over `${{ github.workspace }}`.
 - `cvmfs_catalog_watermark`: Try to release pinned catalogs when their number surpasses the given watermark. Defaults to 1/4 CVMFS_NFILES; explicitly set by shrinkwrap.
 - `cvmfs_check_permissions`: If set to no, disable checking of file ownership and permissions (open all files).
 - `cvmfs_claim_ownership`: If set to yes, allows CernVM-FS to claim ownership of files and directories.
