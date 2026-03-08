@@ -56,7 +56,7 @@ jobs:
           fi
           echo "### Exercise /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
-          echo "### Resolve a Sherpa subtree target to exercise broader cache content ###"
+          echo "### Check lcg/lastUpdate before the deeper cache exercise ###"
           show_exact_target_io_diagnostics() {
             echo "### journalctl: autofs unit ###"
             sudo journalctl -u autofs --no-pager -n 100 || true
@@ -67,39 +67,46 @@ jobs:
               sudo tail -n 400 /var/log/syslog | grep -Ei 'cvmfs|autofs|Input/output|I/O error|sft\.cern\.ch' | tail -n 120 || true
             fi
           }
-          exact_sherpa_bin=/cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa/3.0.1p3-c94f3/x86_64-el9-gcc14-opt/bin/Sherpa
-          if ! ls "${exact_sherpa_bin}"; then
-            echo "::warning::Exact Sherpa access failed; dumping CVMFS/autofs diagnostics before fallback"
+          exact_update_marker=/cvmfs/sft.cern.ch/lcg/lastUpdate
+          if ! ls "${exact_update_marker}"; then
+            echo "::warning::Exact lcg/lastUpdate access failed; dumping CVMFS/autofs diagnostics before fallback"
             show_exact_target_io_diagnostics
           fi
-          sherpa_bin="${exact_sherpa_bin}"
-          if [ ! -e "${sherpa_bin}" ]; then
-            sherpa_bin=$({
-              find /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa -path '*/x86_64-*/bin/Sherpa' -print 2>/dev/null
-              find /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa -path '*/bin/Sherpa' -print 2>/dev/null
+          echo "### Resolve a Bazel target to exercise broader cache content ###"
+          exact_bazel_bin=/cvmfs/sft.cern.ch/lcg/contrib/bazel/Linux-x86_64//lib/bazel/bin/bazel
+          if ! ls "${exact_bazel_bin}"; then
+            echo "::warning::Exact bazel access failed; dumping CVMFS/autofs diagnostics before fallback"
+            show_exact_target_io_diagnostics
+          fi
+          bazel_bin="${exact_bazel_bin}"
+          if [ ! -e "${bazel_bin}" ]; then
+            bazel_bin=$({
+              find /cvmfs/sft.cern.ch/lcg/contrib/bazel -path '*/Linux-x86_64*/lib/bazel/bin/bazel' -print 2>/dev/null
+              find /cvmfs/sft.cern.ch/lcg/contrib/bazel -path '*/lib/bazel/bin/bazel' -print 2>/dev/null
             } | sort -u | tail -n 1)
           fi
-          if [ -z "${sherpa_bin}" ]; then
-            echo "::error::Could not find any fallback Sherpa binary under /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa"
+          if [ -z "${bazel_bin}" ]; then
+            echo "::error::Could not find any fallback bazel binary under /cvmfs/sft.cern.ch/lcg/contrib/bazel"
             exit 1
           fi
-          sherpa_bin_dir=${sherpa_bin%/Sherpa}
-          sherpa_prefix_dir=${sherpa_bin_dir%/bin}
-          sherpa_lib_dir=${sherpa_prefix_dir}/lib
-          printf 'Selected Sherpa binary: %s\n' "${sherpa_bin}"
-          echo "### Read Sherpa bin/lib contents to populate more cached objects ###"
+          bazel_bin_dir=${bazel_bin%/bazel}
+          bazel_root_dir=${bazel_bin_dir%/bin}
+          printf 'Selected bazel binary: %s\n' "${bazel_bin}"
+          echo "### Read the checked paths and nearby bazel files to populate more cached objects ###"
           {
-            find "${sherpa_bin_dir}" -maxdepth 1 \( -type f -o -type l \) | sort
-            if [ -d "${sherpa_lib_dir}" ]; then
-              find "${sherpa_lib_dir}" -maxdepth 1 \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' \) | sort
+            if [ -e "${exact_update_marker}" ]; then
+              printf '%s\n' "${exact_update_marker}"
             fi
-          } | awk '!seen[$0]++' > "${RUNNER_TEMP}/sherpa-files.txt"
-          test -s "${RUNNER_TEMP}/sherpa-files.txt"
-          grep -F '/Sherpa' "${RUNNER_TEMP}/sherpa-files.txt"
+            printf '%s\n' "${bazel_bin}"
+            find "${bazel_bin_dir}" -maxdepth 1 \( -type f -o -type l \) | sort
+            find "${bazel_root_dir}" -maxdepth 1 \( -type f -o -type l \) | sort
+          } | awk '!seen[$0]++' > "${RUNNER_TEMP}/bazel-files.txt"
+          test -s "${RUNNER_TEMP}/bazel-files.txt"
+          grep -F '/bin/bazel' "${RUNNER_TEMP}/bazel-files.txt"
           while IFS= read -r path; do
             cat "${path}" > /dev/null
-          done < "${RUNNER_TEMP}/sherpa-files.txt"
-          printf 'Read %s Sherpa-related entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/sherpa-files.txt")" "${sherpa_prefix_dir}"
+          done < "${RUNNER_TEMP}/bazel-files.txt"
+          printf 'Read %s bazel-related entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/bazel-files.txt")" "${bazel_root_dir}"
           echo "### Probe after first repository access ###"
           set +e
           sudo cvmfs_config probe
@@ -198,7 +205,7 @@ jobs:
           }
           echo "### Reuse /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
-          echo "### Resolve the Sherpa target used for targeted reuse ###"
+          echo "### Resolve the lcg/lastUpdate and bazel targets used for targeted reuse ###"
           show_exact_target_io_diagnostics() {
             echo "### journalctl: autofs unit ###"
             sudo journalctl -u autofs --no-pager -n 100 || true
@@ -209,53 +216,73 @@ jobs:
               sudo tail -n 400 /var/log/syslog | grep -Ei 'cvmfs|autofs|Input/output|I/O error|sft\.cern\.ch' | tail -n 120 || true
             fi
           }
-          exact_sherpa_bin=/cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa/3.0.1p3-c94f3/x86_64-el9-gcc14-opt/bin/Sherpa
-          if ! ls "${exact_sherpa_bin}"; then
-            echo "::warning::Exact Sherpa access failed; dumping CVMFS/autofs diagnostics before fallback"
+          exact_update_marker=/cvmfs/sft.cern.ch/lcg/lastUpdate
+          if ! ls "${exact_update_marker}"; then
+            echo "::warning::Exact lcg/lastUpdate access failed; dumping CVMFS/autofs diagnostics before fallback"
             show_exact_target_io_diagnostics
           fi
-          sherpa_bin="${exact_sherpa_bin}"
-          if [ ! -e "${sherpa_bin}" ]; then
-            sherpa_bin=$({
-              find /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa -path '*/x86_64-*/bin/Sherpa' -print 2>/dev/null
-              find /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa -path '*/bin/Sherpa' -print 2>/dev/null
+          exact_bazel_bin=/cvmfs/sft.cern.ch/lcg/contrib/bazel/Linux-x86_64//lib/bazel/bin/bazel
+          if ! ls "${exact_bazel_bin}"; then
+            echo "::warning::Exact bazel access failed; dumping CVMFS/autofs diagnostics before fallback"
+            show_exact_target_io_diagnostics
+          fi
+          bazel_bin="${exact_bazel_bin}"
+          if [ ! -e "${bazel_bin}" ]; then
+            bazel_bin=$({
+              find /cvmfs/sft.cern.ch/lcg/contrib/bazel -path '*/Linux-x86_64*/lib/bazel/bin/bazel' -print 2>/dev/null
+              find /cvmfs/sft.cern.ch/lcg/contrib/bazel -path '*/lib/bazel/bin/bazel' -print 2>/dev/null
             } | sort -u | tail -n 1)
           fi
-          if [ -z "${sherpa_bin}" ]; then
-            echo "::error::Could not find any fallback Sherpa binary under /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa"
+          if [ -z "${bazel_bin}" ]; then
+            echo "::error::Could not find any fallback bazel binary under /cvmfs/sft.cern.ch/lcg/contrib/bazel"
             exit 1
           fi
-          sherpa_bin_dir=${sherpa_bin%/Sherpa}
-          sherpa_prefix_dir=${sherpa_bin_dir%/bin}
-          sherpa_lib_dir=${sherpa_prefix_dir}/lib
-          printf 'Selected Sherpa binary: %s\n' "${sherpa_bin}"
+          bazel_bin_dir=${bazel_bin%/bazel}
+          bazel_root_dir=${bazel_bin_dir%/bin}
+          printf 'Selected bazel binary: %s\n' "${bazel_bin}"
           echo "### Inspect restored cache state via cvmfs_talk before targeted reuse ###"
           sudo cvmfs_talk -i sft.cern.ch cache instance || true
           sudo cvmfs_talk -i sft.cern.ch cache size || true
           sudo cvmfs_talk -i sft.cern.ch cache list > "${RUNNER_TEMP}/cache-list-before.txt"
-          if grep -F 'Sherpa' "${RUNNER_TEMP}/cache-list-before.txt"; then
-            echo "Sherpa already appears in cache list before the targeted reuse read"
+          if [ -e "${exact_update_marker}" ]; then
+            if grep -F 'lastUpdate' "${RUNNER_TEMP}/cache-list-before.txt"; then
+              echo "lastUpdate already appears in cache list before the targeted reuse read"
+            else
+              echo "::notice::lastUpdate not yet visible in cache list before the targeted reuse read"
+            fi
           else
-            echo "::notice::Sherpa not yet visible in cache list before the targeted reuse read"
+            echo "::notice::Skipping cache-list check for lcg/lastUpdate because the exact path is not currently available"
+          fi
+          if grep -F 'bazel' "${RUNNER_TEMP}/cache-list-before.txt"; then
+            echo "bazel already appears in cache list before the targeted reuse read"
+          else
+            echo "::notice::bazel not yet visible in cache list before the targeted reuse read"
           fi
           show_cvmfs_talk_metrics before-targeted-reuse
-          echo "### Re-read Sherpa bin/lib contents to confirm cache reuse on richer content ###"
+          echo "### Re-read the checked paths and nearby bazel files to confirm cache reuse on richer content ###"
           {
-            find "${sherpa_bin_dir}" -maxdepth 1 \( -type f -o -type l \) | sort
-            if [ -d "${sherpa_lib_dir}" ]; then
-              find "${sherpa_lib_dir}" -maxdepth 1 \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' \) | sort
+            if [ -e "${exact_update_marker}" ]; then
+              printf '%s\n' "${exact_update_marker}"
             fi
-          } | awk '!seen[$0]++' > "${RUNNER_TEMP}/sherpa-files.txt"
-          test -s "${RUNNER_TEMP}/sherpa-files.txt"
-          grep -F '/Sherpa' "${RUNNER_TEMP}/sherpa-files.txt"
+            printf '%s\n' "${bazel_bin}"
+            find "${bazel_bin_dir}" -maxdepth 1 \( -type f -o -type l \) | sort
+            find "${bazel_root_dir}" -maxdepth 1 \( -type f -o -type l \) | sort
+          } | awk '!seen[$0]++' > "${RUNNER_TEMP}/bazel-files.txt"
+          test -s "${RUNNER_TEMP}/bazel-files.txt"
+          grep -F '/bin/bazel' "${RUNNER_TEMP}/bazel-files.txt"
           while IFS= read -r path; do
             cat "${path}" > /dev/null
-          done < "${RUNNER_TEMP}/sherpa-files.txt"
-          printf 'Re-read %s Sherpa-related entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/sherpa-files.txt")" "${sherpa_prefix_dir}"
-          echo "### Require Sherpa in cvmfs_talk cache list during reuse ###"
+          done < "${RUNNER_TEMP}/bazel-files.txt"
+          printf 'Re-read %s bazel-related entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/bazel-files.txt")" "${bazel_root_dir}"
+          echo "### Require checked paths in cvmfs_talk cache list during reuse ###"
           sudo cvmfs_talk -i sft.cern.ch cache list > "${RUNNER_TEMP}/cache-list-after.txt"
-          if ! grep -F 'Sherpa' "${RUNNER_TEMP}/cache-list-after.txt"; then
-            echo "::error::Sherpa did not appear in cvmfs_talk cache list after the targeted reuse read"
+          if [ -e "${exact_update_marker}" ] && ! grep -F 'lastUpdate' "${RUNNER_TEMP}/cache-list-after.txt"; then
+            echo "::error::lastUpdate did not appear in cvmfs_talk cache list after the targeted reuse read"
+            sed -n '1,120p' "${RUNNER_TEMP}/cache-list-after.txt"
+            exit 1
+          fi
+          if ! grep -F 'bazel' "${RUNNER_TEMP}/cache-list-after.txt"; then
+            echo "::error::bazel did not appear in cvmfs_talk cache list after the targeted reuse read"
             sed -n '1,120p' "${RUNNER_TEMP}/cache-list-after.txt"
             exit 1
           fi
