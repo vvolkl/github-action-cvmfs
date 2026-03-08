@@ -45,6 +45,11 @@ if [ "$(uname)" == "Linux" ]; then
   if [ -n "${CVMFS_CACHE_BASE}" ]; then
     echo "::group::Preparing cvmfs cache base"
     runner_group=$(id -gn)
+    if ! id -nG cvmfs | tr ' ' '\n' | grep -Fx "${runner_group}" >/dev/null; then
+      sudo usermod -a -G "${runner_group}" cvmfs
+    fi
+    id cvmfs
+    sudo -u cvmfs id
     mkdir -p "${CVMFS_CACHE_BASE}"
     sudo chown -R cvmfs:"${runner_group}" "${CVMFS_CACHE_BASE}"
     sudo chmod -R u+rwX,go+rX "${CVMFS_CACHE_BASE}"
