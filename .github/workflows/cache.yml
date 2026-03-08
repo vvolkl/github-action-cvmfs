@@ -22,8 +22,10 @@ jobs:
           cat /etc/cvmfs/default.local
           echo "### Check configured cache base ###"
           grep "CVMFS_CACHE_BASE='${{ github.workspace }}/.cvmfs'" /etc/cvmfs/default.local
-          echo "### Try cvmfs_config probe ###"
-          sudo cvmfs_config probe
+          echo "### Try cvmfs_config probe (non-fatal diagnostic) ###"
+          if ! sudo cvmfs_config probe; then
+            echo "::warning::cvmfs_config probe failed before direct repository access; continuing to validate cache population via real /cvmfs access"
+          fi
           echo "### Exercise /cvmfs/sft.cern.ch ###"
           source /cvmfs/sft.cern.ch/lcg/views/LCG_107/x86_64-ubuntu2404-gcc13-opt/setup.sh
           root -l -q -b
@@ -61,8 +63,10 @@ jobs:
         run: |
           echo "### Dump default.local ###"
           cat /etc/cvmfs/default.local
-          echo "### Try cvmfs_config probe ###"
-          sudo cvmfs_config probe
+          echo "### Try cvmfs_config probe (non-fatal diagnostic) ###"
+          if ! sudo cvmfs_config probe; then
+            echo "::warning::cvmfs_config probe failed before direct repository access; continuing to validate cache reuse via real /cvmfs access"
+          fi
           echo "### Reuse /cvmfs/sft.cern.ch ###"
           source /cvmfs/sft.cern.ch/lcg/views/LCG_107/x86_64-ubuntu2404-gcc13-opt/setup.sh
           root -l -q -b
