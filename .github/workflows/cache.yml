@@ -57,13 +57,30 @@ jobs:
           echo "### Exercise /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
           echo "### Resolve a ROOT library directory to exercise broader cache content ###"
-          ls /cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so || true
-          root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
+          show_exact_root_io_diagnostics() {
+            echo "### journalctl: autofs unit ###"
+            sudo journalctl -u autofs --no-pager -n 100 || true
+            echo "### journalctl: filtered cvmfs/autofs/I-O lines ###"
+            sudo journalctl --no-pager -n 400 | grep -Ei 'cvmfs|autofs|Input/output|I/O error|sft\.cern\.ch' | tail -n 120 || true
+            if [ -f /var/log/syslog ]; then
+              echo "### /var/log/syslog: filtered cvmfs/autofs/I-O lines ###"
+              sudo tail -n 400 /var/log/syslog | grep -Ei 'cvmfs|autofs|Input/output|I/O error|sft\.cern\.ch' | tail -n 120 || true
+            fi
+          }
+          exact_root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
+          if ! ls "${exact_root_tree_lib}"; then
+            echo "::warning::Exact ROOT libTree.so access failed; dumping CVMFS/autofs diagnostics before fallback"
+            show_exact_root_io_diagnostics
+          fi
+          root_tree_lib="${exact_root_tree_lib}"
           if [ ! -e "${root_tree_lib}" ]; then
-            root_tree_lib=$(find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so' -print 2>/dev/null | sort | tail -n 1)
+            root_tree_lib=$({
+              find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-*/lib/libTree.so' -print 2>/dev/null
+              find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/lib/libTree.so' -print 2>/dev/null
+            } | sort -u | tail -n 1)
           fi
           if [ -z "${root_tree_lib}" ]; then
-            echo "::error::Could not find a ROOT libTree.so for x86_64-ubuntu2404-gcc13-opt under /cvmfs/sft.cern.ch/lcg/releases/ROOT"
+            echo "::error::Could not find any fallback ROOT libTree.so under /cvmfs/sft.cern.ch/lcg/releases/ROOT"
             exit 1
           fi
           root_lib_dir=${root_tree_lib%/libTree.so}
@@ -175,13 +192,30 @@ jobs:
           echo "### Reuse /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
           echo "### Resolve the ROOT library directory used for targeted reuse ###"
-          ls /cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so || true
-          root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
+          show_exact_root_io_diagnostics() {
+            echo "### journalctl: autofs unit ###"
+            sudo journalctl -u autofs --no-pager -n 100 || true
+            echo "### journalctl: filtered cvmfs/autofs/I-O lines ###"
+            sudo journalctl --no-pager -n 400 | grep -Ei 'cvmfs|autofs|Input/output|I/O error|sft\.cern\.ch' | tail -n 120 || true
+            if [ -f /var/log/syslog ]; then
+              echo "### /var/log/syslog: filtered cvmfs/autofs/I-O lines ###"
+              sudo tail -n 400 /var/log/syslog | grep -Ei 'cvmfs|autofs|Input/output|I/O error|sft\.cern\.ch' | tail -n 120 || true
+            fi
+          }
+          exact_root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
+          if ! ls "${exact_root_tree_lib}"; then
+            echo "::warning::Exact ROOT libTree.so access failed; dumping CVMFS/autofs diagnostics before fallback"
+            show_exact_root_io_diagnostics
+          fi
+          root_tree_lib="${exact_root_tree_lib}"
           if [ ! -e "${root_tree_lib}" ]; then
-            root_tree_lib=$(find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so' -print 2>/dev/null | sort | tail -n 1)
+            root_tree_lib=$({
+              find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-*/lib/libTree.so' -print 2>/dev/null
+              find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/lib/libTree.so' -print 2>/dev/null
+            } | sort -u | tail -n 1)
           fi
           if [ -z "${root_tree_lib}" ]; then
-            echo "::error::Could not find a ROOT libTree.so for x86_64-ubuntu2404-gcc13-opt under /cvmfs/sft.cern.ch/lcg/releases/ROOT"
+            echo "::error::Could not find any fallback ROOT libTree.so under /cvmfs/sft.cern.ch/lcg/releases/ROOT"
             exit 1
           fi
           root_lib_dir=${root_tree_lib%/libTree.so}
