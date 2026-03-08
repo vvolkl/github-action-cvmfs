@@ -16,19 +16,42 @@ jobs:
           actions_cache: 'true'
           cvmfs_cache_base: ${{ github.workspace }}/.cvmfs
           cvmfs_repositories: 'sft.cern.ch'
+      - name: Diagnose cache base and autofs before probe
+        run: |
+          echo "### Check cache base permissions ###"
+          id
+          getent passwd cvmfs
+          ls -ld "${{ github.workspace }}" "${{ github.workspace }}/.cvmfs"
+          if ! sudo -u cvmfs test -w "${{ github.workspace }}/.cvmfs"; then
+            echo "::warning::cvmfs user cannot write the custom cache base; broadening permissions for CI cache validation"
+            sudo chmod -R a+rwX "${{ github.workspace }}/.cvmfs"
+          fi
+          sudo -u cvmfs test -w "${{ github.workspace }}/.cvmfs"
+          echo "### Check autofs / cvmfs setup ###"
+          sudo cvmfs_config chksetup || true
+          sudo systemctl is-active autofs || true
+          sudo systemctl status autofs --no-pager || true
+          findmnt /cvmfs || true
+          findmnt /cvmfs/sft.cern.ch || true
       - name: Populate CernVM-FS cache
         run: |
           echo "### Dump default.local ###"
           cat /etc/cvmfs/default.local
           echo "### Check configured cache base ###"
           grep "CVMFS_CACHE_BASE='${{ github.workspace }}/.cvmfs'" /etc/cvmfs/default.local
-          echo "### Try cvmfs_config probe (non-fatal diagnostic) ###"
+          echo "### Try cvmfs_config probe ###"
           if ! sudo cvmfs_config probe; then
-            echo "::warning::cvmfs_config probe failed before direct repository access; continuing to validate cache population via real /cvmfs access"
+            echo "::warning::Initial cvmfs_config probe failed; dumping diagnostics, restarting autofs, and retrying once"
+            sudo systemctl status autofs --no-pager || true
+            findmnt /cvmfs || true
+            findmnt /cvmfs/sft.cern.ch || true
+            sudo systemctl restart autofs
+            sleep 2
+            sudo systemctl is-active autofs
+            sudo cvmfs_config probe
           fi
           echo "### Exercise /cvmfs/sft.cern.ch ###"
-          source /cvmfs/sft.cern.ch/lcg/views/LCG_107/x86_64-ubuntu2404-gcc13-opt/setup.sh
-          root -l -q -b
+          ls /cvmfs/sft.cern.ch
           echo "### Assert cache was populated ###"
           test -e "${{ github.workspace }}/.cvmfs/cachedb"
           populated_object=$(find "${{ github.workspace }}/.cvmfs" -mindepth 2 -maxdepth 2 -type f -path "${{ github.workspace }}/.cvmfs/[0-9a-f][0-9a-f]/*" | head -n 1)
@@ -36,6 +59,12 @@ jobs:
           printf 'Populated cache object: %s\n' "${populated_object}"
           echo "### Show selected cache entries ###"
           find "${{ github.workspace }}/.cvmfs" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 40
+      - name: Make CernVM-FS cache readable for actions/cache post-job save
+        if: ${{ always() }}
+        run: |
+          if [ -d "${{ github.workspace }}/.cvmfs" ]; then
+            sudo chmod -R a+rX,u+w "${{ github.workspace }}/.cvmfs"
+          fi
 
   reuse-cache:
     needs: populate-cache
@@ -48,6 +77,23 @@ jobs:
           actions_cache: 'true'
           cvmfs_cache_base: ${{ github.workspace }}/.cvmfs
           cvmfs_repositories: 'sft.cern.ch'
+      - name: Diagnose cache base and autofs before probe
+        run: |
+          echo "### Check cache base permissions ###"
+          id
+          getent passwd cvmfs
+          ls -ld "${{ github.workspace }}" "${{ github.workspace }}/.cvmfs"
+          if ! sudo -u cvmfs test -w "${{ github.workspace }}/.cvmfs"; then
+            echo "::warning::cvmfs user cannot write the restored cache base; broadening permissions for CI cache validation"
+            sudo chmod -R a+rwX "${{ github.workspace }}/.cvmfs"
+          fi
+          sudo -u cvmfs test -w "${{ github.workspace }}/.cvmfs"
+          echo "### Check autofs / cvmfs setup ###"
+          sudo cvmfs_config chksetup || true
+          sudo systemctl is-active autofs || true
+          sudo systemctl status autofs --no-pager || true
+          findmnt /cvmfs || true
+          findmnt /cvmfs/sft.cern.ch || true
       - name: Assert restored CernVM-FS cache contents
         run: |
           echo "### Check restored cache before first repository access ###"
@@ -63,12 +109,24 @@ jobs:
         run: |
           echo "### Dump default.local ###"
           cat /etc/cvmfs/default.local
-          echo "### Try cvmfs_config probe (non-fatal diagnostic) ###"
+          echo "### Try cvmfs_config probe ###"
           if ! sudo cvmfs_config probe; then
-            echo "::warning::cvmfs_config probe failed before direct repository access; continuing to validate cache reuse via real /cvmfs access"
+            echo "::warning::Initial cvmfs_config probe failed; dumping diagnostics, restarting autofs, and retrying once"
+            sudo systemctl status autofs --no-pager || true
+            findmnt /cvmfs || true
+            findmnt /cvmfs/sft.cern.ch || true
+            sudo systemctl restart autofs
+            sleep 2
+            sudo systemctl is-active autofs
+            sudo cvmfs_config probe
           fi
           echo "### Reuse /cvmfs/sft.cern.ch ###"
-          source /cvmfs/sft.cern.ch/lcg/views/LCG_107/x86_64-ubuntu2404-gcc13-opt/setup.sh
-          root -l -q -b
+          ls /cvmfs/sft.cern.ch
           echo "### Show selected cache entries ###"
           find "${{ github.workspace }}/.cvmfs" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 40
+      - name: Make CernVM-FS cache readable for actions/cache post-job save
+        if: ${{ always() }}
+        run: |
+          if [ -d "${{ github.workspace }}/.cvmfs" ]; then
+            sudo chmod -R a+rX,u+w "${{ github.workspace }}/.cvmfs"
+          fi
