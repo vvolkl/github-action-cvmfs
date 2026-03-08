@@ -91,8 +91,20 @@ jobs:
           bazel_bin_dir=${bazel_bin%/bazel}
           bazel_root_dir=${bazel_bin_dir%/bin}
           printf 'Selected bazel binary: %s\n' "${bazel_bin}"
+          echo "### Try the exact problematic ROOT libTree.so path without making it mandatory ###"
+          exact_root_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
+          root_lib_for_read=
+          if ls "${exact_root_lib}"; then
+            root_lib_for_read="${exact_root_lib}"
+          else
+            echo "::warning::Exact ROOT libTree.so access failed; dumping CVMFS/autofs diagnostics and continuing without making it required"
+            show_exact_target_io_diagnostics
+          fi
           echo "### Read the checked paths and nearby bazel files to populate more cached objects ###"
           {
+            if [ -n "${root_lib_for_read}" ]; then
+              printf '%s\n' "${root_lib_for_read}"
+            fi
             if [ -e "${exact_update_marker}" ]; then
               printf '%s\n' "${exact_update_marker}"
             fi
@@ -239,6 +251,15 @@ jobs:
           bazel_bin_dir=${bazel_bin%/bazel}
           bazel_root_dir=${bazel_bin_dir%/bin}
           printf 'Selected bazel binary: %s\n' "${bazel_bin}"
+          echo "### Try the exact problematic ROOT libTree.so path without making it mandatory ###"
+          exact_root_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
+          root_lib_for_read=
+          if ls "${exact_root_lib}"; then
+            root_lib_for_read="${exact_root_lib}"
+          else
+            echo "::warning::Exact ROOT libTree.so access failed; dumping CVMFS/autofs diagnostics and continuing without making it required"
+            show_exact_target_io_diagnostics
+          fi
           echo "### Inspect restored cache state via cvmfs_talk before targeted reuse ###"
           sudo cvmfs_talk -i sft.cern.ch cache instance || true
           sudo cvmfs_talk -i sft.cern.ch cache size || true
@@ -260,6 +281,9 @@ jobs:
           show_cvmfs_talk_metrics before-targeted-reuse
           echo "### Re-read the checked paths and nearby bazel files to confirm cache reuse on richer content ###"
           {
+            if [ -n "${root_lib_for_read}" ]; then
+              printf '%s\n' "${root_lib_for_read}"
+            fi
             if [ -e "${exact_update_marker}" ]; then
               printf '%s\n' "${exact_update_marker}"
             fi
