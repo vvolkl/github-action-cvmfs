@@ -52,10 +52,26 @@ if [ "$(uname)" == "Linux" ]; then
     sudo -u cvmfs id
     mkdir -p "${CVMFS_CACHE_BASE}"
     sudo chown -R cvmfs:"${runner_group}" "${CVMFS_CACHE_BASE}"
-    sudo chmod -R u+rwX,go+rX "${CVMFS_CACHE_BASE}"
-    sudo find "${CVMFS_CACHE_BASE}" -type d -exec chmod u+rws,go+rx {} +
+    sudo chmod -R ug+rwX,o+rX "${CVMFS_CACHE_BASE}"
+    sudo find "${CVMFS_CACHE_BASE}" -type d -exec chmod ug+rwx,g+s,o+rx {} +
     ls -ld "${CVMFS_CACHE_BASE}"
     sudo -u cvmfs test -w "${CVMFS_CACHE_BASE}"
+    sudo -u cvmfs env CVMFS_CACHE_BASE="${CVMFS_CACHE_BASE}" bash <<'EOF'
+set -euo pipefail
+probe_file="${CVMFS_CACHE_BASE}/.cvmfs-write-probe"
+mkdir -p "${CVMFS_CACHE_BASE}/shared"
+printf 'probe\n' > "${probe_file}"
+rm -f "${probe_file}"
+shared_probe="${CVMFS_CACHE_BASE}/shared/.cvmfs-write-probe"
+printf 'probe\n' > "${shared_probe}"
+rm -f "${shared_probe}"
+for n in $(seq 0 255); do
+  printf -v hex '%02x' "${n}"
+  mkdir -p "${CVMFS_CACHE_BASE}/shared/${hex}"
+done
+EOF
+    ls -ld "${CVMFS_CACHE_BASE}" "${CVMFS_CACHE_BASE}/shared"
+    sudo find "${CVMFS_CACHE_BASE}/shared" -maxdepth 1 -type d | sort | head -n 10
     test -r "${CVMFS_CACHE_BASE}"
     echo "::endgroup::"
   fi
