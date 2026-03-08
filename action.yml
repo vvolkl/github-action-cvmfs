@@ -41,7 +41,7 @@ inputs:
     required: false
     default: ''
   cvmfs_cache_base:
-    description: 'Location (directory) of the CernVM-FS cache. The cvmfs user must be able to traverse all parent directories and write this directory; on GitHub-hosted runners prefer a path under /tmp over the GitHub workspace path.'
+    description: 'Location (directory) of the CernVM-FS cache. The cvmfs user must be able to traverse all parent directories and write this directory; on GitHub-hosted runners prefer a subdirectory under the GitHub workspace so the action can prepare it for both the cvmfs user and the runner user.'
     required: false
     default: ''
   cvmfs_catalog_watermark:

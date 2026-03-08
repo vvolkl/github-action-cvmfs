@@ -6,14 +6,13 @@ on:
     - cron: '21 6 * * *'
 
 env:
-  CVMFS_CACHE_BASE: /tmp/github-action-cvmfs-cache
+  CVMFS_CACHE_BASE: ${{ github.workspace }}/.cvmfs-cache
 
 jobs:
   populate-cache:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - run: mkdir -p ${{ env.CVMFS_CACHE_BASE }}
       - uses: ./
         with:
           actions_cache: 'true'
@@ -21,17 +20,16 @@ jobs:
           cvmfs_repositories: 'sft.cern.ch'
       - name: Diagnose workspace and cache base access before first access
         run: |
+          cache_parent=$(dirname "${{ env.CVMFS_CACHE_BASE }}")
           echo "### Compare workspace and cache path ancestry ###"
           namei -l "${{ github.workspace }}" || true
+          namei -l "${cache_parent}" || true
           namei -l "${{ env.CVMFS_CACHE_BASE }}" || true
-          echo "### Check cache base permissions ###"
+          echo "### Check action-prepared cache base permissions ###"
           id
           getent passwd cvmfs
-          ls -ld "${{ github.workspace }}" /tmp "${{ env.CVMFS_CACHE_BASE }}"
-          if ! sudo -u cvmfs test -w "${{ env.CVMFS_CACHE_BASE }}"; then
-            echo "::warning::cvmfs user cannot write the cache base; broadening permissions for CI cache validation"
-            sudo chmod -R a+rwX "${{ env.CVMFS_CACHE_BASE }}"
-          fi
+          ls -ld "${{ github.workspace }}" "${cache_parent}" "${{ env.CVMFS_CACHE_BASE }}"
+          test -r "${{ env.CVMFS_CACHE_BASE }}"
           sudo -u cvmfs test -w "${{ env.CVMFS_CACHE_BASE }}"
       - name: Populate CernVM-FS cache
         run: |
@@ -144,7 +142,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - run: mkdir -p ${{ env.CVMFS_CACHE_BASE }}
       - uses: ./
         with:
           actions_cache: 'true'
@@ -152,17 +149,16 @@ jobs:
           cvmfs_repositories: 'sft.cern.ch'
       - name: Diagnose workspace and cache base access before reuse
         run: |
+          cache_parent=$(dirname "${{ env.CVMFS_CACHE_BASE }}")
           echo "### Compare workspace and cache path ancestry ###"
           namei -l "${{ github.workspace }}" || true
+          namei -l "${cache_parent}" || true
           namei -l "${{ env.CVMFS_CACHE_BASE }}" || true
-          echo "### Check cache base permissions ###"
+          echo "### Check action-prepared cache base permissions ###"
           id
           getent passwd cvmfs
-          ls -ld "${{ github.workspace }}" /tmp "${{ env.CVMFS_CACHE_BASE }}"
-          if ! sudo -u cvmfs test -w "${{ env.CVMFS_CACHE_BASE }}"; then
-            echo "::warning::cvmfs user cannot write the restored cache base; broadening permissions for CI cache validation"
-            sudo chmod -R a+rwX "${{ env.CVMFS_CACHE_BASE }}"
-          fi
+          ls -ld "${{ github.workspace }}" "${cache_parent}" "${{ env.CVMFS_CACHE_BASE }}"
+          test -r "${{ env.CVMFS_CACHE_BASE }}"
           sudo -u cvmfs test -w "${{ env.CVMFS_CACHE_BASE }}"
           echo "### Check autofs / cvmfs setup ###"
           sudo cvmfs_config chksetup || true
