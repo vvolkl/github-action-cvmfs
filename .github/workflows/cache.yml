@@ -71,12 +71,12 @@ jobs:
           findmnt /cvmfs/sft.cern.ch || true
           sudo cvmfs_config status || true
           echo "### Assert cache was populated ###"
-          test -e "${{ env.CVMFS_CACHE_BASE }}/shared/cachedb"
-          populated_object=$(find "${{ env.CVMFS_CACHE_BASE }}/shared" -mindepth 2 -maxdepth 2 -type f -path "${{ env.CVMFS_CACHE_BASE }}/shared/[0-9a-f][0-9a-f]/*" | head -n 1)
+          sudo test -e "${{ env.CVMFS_CACHE_BASE }}/shared/cachedb"
+          populated_object=$(sudo find "${{ env.CVMFS_CACHE_BASE }}/shared" -mindepth 2 -maxdepth 2 -type f -path "${{ env.CVMFS_CACHE_BASE }}/shared/[0-9a-f][0-9a-f]/*" | head -n 1)
           test -n "${populated_object}"
           printf 'Populated cache object: %s\n' "${populated_object}"
           echo "### Show selected cache entries ###"
-          find "${{ env.CVMFS_CACHE_BASE }}/shared" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 40
+          sudo find "${{ env.CVMFS_CACHE_BASE }}/shared" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 40
           if [ "${post_probe_rc}" -ne 0 ]; then
             echo "::error::cvmfs_config probe still failed after first repository access"
             exit "${post_probe_rc}"
@@ -122,11 +122,11 @@ jobs:
       - name: Assert restored CernVM-FS cache contents
         run: |
           echo "### Check restored cache before first repository access ###"
-          test -e "${{ env.CVMFS_CACHE_BASE }}/shared/cachedb"
-          restored_object=$(find "${{ env.CVMFS_CACHE_BASE }}/shared" -mindepth 2 -maxdepth 2 -type f -path "${{ env.CVMFS_CACHE_BASE }}/shared/[0-9a-f][0-9a-f]/*" | head -n 1)
+          sudo test -e "${{ env.CVMFS_CACHE_BASE }}/shared/cachedb"
+          restored_object=$(sudo find "${{ env.CVMFS_CACHE_BASE }}/shared" -mindepth 2 -maxdepth 2 -type f -path "${{ env.CVMFS_CACHE_BASE }}/shared/[0-9a-f][0-9a-f]/*" | head -n 1)
           if [ -z "${restored_object}" ]; then
             echo "Expected restored cache content under the persistent hash directories before first CVMFS access"
-            find "${{ env.CVMFS_CACHE_BASE }}/shared" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 80
+            sudo find "${{ env.CVMFS_CACHE_BASE }}/shared" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 80
             exit 1
           fi
           printf 'Restored cache object: %s\n' "${restored_object}"
@@ -148,7 +148,7 @@ jobs:
           echo "### Reuse /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
           echo "### Show selected cache entries ###"
-          find "${{ env.CVMFS_CACHE_BASE }}/shared" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 40
+          sudo find "${{ env.CVMFS_CACHE_BASE }}/shared" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 40
       - name: Make CernVM-FS cache readable for actions/cache post-job save
         if: ${{ always() }}
         run: |
