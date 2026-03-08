@@ -56,6 +56,25 @@ jobs:
           fi
           echo "### Exercise /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
+          echo "### Resolve a ROOT library directory to exercise broader cache content ###"
+          root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
+          if [ ! -e "${root_tree_lib}" ]; then
+            root_tree_lib=$(find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so' -print 2>/dev/null | sort | tail -n 1)
+          fi
+          if [ -z "${root_tree_lib}" ]; then
+            echo "::error::Could not find a ROOT libTree.so for x86_64-ubuntu2404-gcc13-opt under /cvmfs/sft.cern.ch/lcg/releases/ROOT"
+            exit 1
+          fi
+          root_lib_dir=${root_tree_lib%/libTree.so}
+          printf 'Selected ROOT library directory: %s\n' "${root_lib_dir}"
+          echo "### Read ROOT libraries to populate more cached objects ###"
+          find "${root_lib_dir}" -maxdepth 1 \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' \) | sort > "${RUNNER_TEMP}/root-libs.txt"
+          test -s "${RUNNER_TEMP}/root-libs.txt"
+          grep -F 'libTree.so' "${RUNNER_TEMP}/root-libs.txt"
+          while IFS= read -r lib; do
+            cat "${lib}" > /dev/null
+          done < "${RUNNER_TEMP}/root-libs.txt"
+          printf 'Read %s ROOT library entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/root-libs.txt")" "${root_lib_dir}"
           echo "### Probe after first repository access ###"
           set +e
           sudo cvmfs_config probe
@@ -145,8 +164,53 @@ jobs:
             sudo systemctl is-active autofs
             sudo cvmfs_config probe
           fi
+          show_cvmfs_talk_metrics() {
+            label="$1"
+            metrics_file="${RUNNER_TEMP}/cvmfs-${label}.prom"
+            echo "### cvmfs_talk metrics (${label}) ###"
+            sudo cvmfs_talk -i sft.cern.ch metrics prometheus > "${metrics_file}" || return 0
+            grep -Ei 'cvmfs_.*(cache|download|hit|rx)' "${metrics_file}" | head -n 40 || true
+          }
           echo "### Reuse /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
+          echo "### Resolve the ROOT library directory used for targeted reuse ###"
+          root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
+          if [ ! -e "${root_tree_lib}" ]; then
+            root_tree_lib=$(find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so' -print 2>/dev/null | sort | tail -n 1)
+          fi
+          if [ -z "${root_tree_lib}" ]; then
+            echo "::error::Could not find a ROOT libTree.so for x86_64-ubuntu2404-gcc13-opt under /cvmfs/sft.cern.ch/lcg/releases/ROOT"
+            exit 1
+          fi
+          root_lib_dir=${root_tree_lib%/libTree.so}
+          printf 'Selected ROOT library directory: %s\n' "${root_lib_dir}"
+          echo "### Inspect restored cache state via cvmfs_talk before targeted reuse ###"
+          sudo cvmfs_talk -i sft.cern.ch cache instance || true
+          sudo cvmfs_talk -i sft.cern.ch cache size || true
+          sudo cvmfs_talk -i sft.cern.ch cache list > "${RUNNER_TEMP}/cache-list-before.txt"
+          if grep -F 'libTree.so' "${RUNNER_TEMP}/cache-list-before.txt"; then
+            echo "libTree.so already appears in cache list before the targeted reuse read"
+          else
+            echo "::notice::libTree.so not yet visible in cache list before the targeted reuse read"
+          fi
+          show_cvmfs_talk_metrics before-targeted-reuse
+          echo "### Re-read ROOT libraries to confirm cache reuse on richer content ###"
+          cat "${root_tree_lib}" > /dev/null
+          find "${root_lib_dir}" -maxdepth 1 \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' \) | sort > "${RUNNER_TEMP}/root-libs.txt"
+          test -s "${RUNNER_TEMP}/root-libs.txt"
+          grep -F 'libTree.so' "${RUNNER_TEMP}/root-libs.txt"
+          while IFS= read -r lib; do
+            cat "${lib}" > /dev/null
+          done < "${RUNNER_TEMP}/root-libs.txt"
+          printf 'Re-read %s ROOT library entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/root-libs.txt")" "${root_lib_dir}"
+          echo "### Require libTree.so in cvmfs_talk cache list during reuse ###"
+          sudo cvmfs_talk -i sft.cern.ch cache list > "${RUNNER_TEMP}/cache-list-after.txt"
+          if ! grep -F 'libTree.so' "${RUNNER_TEMP}/cache-list-after.txt"; then
+            echo "::error::libTree.so did not appear in cvmfs_talk cache list after the targeted reuse read"
+            sed -n '1,120p' "${RUNNER_TEMP}/cache-list-after.txt"
+            exit 1
+          fi
+          show_cvmfs_talk_metrics after-targeted-reuse
           echo "### Show selected cache entries ###"
           sudo find "${{ env.CVMFS_CACHE_BASE }}/shared" -maxdepth 2 \( -name cachedb -o -name '[0-9a-f][0-9a-f]' \) | sort | head -n 40
       - name: Make CernVM-FS cache readable for actions/cache post-job save
