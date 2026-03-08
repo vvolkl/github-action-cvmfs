@@ -8,6 +8,10 @@ inputs:
     description: 'Location (directory) of the user-space apt cache.'
     required: false
     default: 'apt_cache'
+  actions_cache:
+    description: 'Enable a GitHub Actions cache for persistent CernVM-FS cache contents under cvmfs_cache_base.'
+    required: false
+    default: 'false'
   cvmfs_alien_cache:
     description: 'If set, use an alien cache at the given location.'
     required: false
@@ -356,6 +360,13 @@ runs:
         key: cvmfs-apt-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}
         path: |
           ${{ inputs.apt_cache }}
+    - uses: actions/cache@v5
+      if: ${{ inputs.actions_cache == 'true' && inputs.cvmfs_cache_base != '' }}
+      with:
+        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}
+        path: |
+          ${{ inputs.cvmfs_cache_base }}/cachedb
+          ${{ inputs.cvmfs_cache_base }}/[0-9a-f][0-9a-f]
     - run: |
         ${{ github.action_path }}/setup-cvmfs.sh
       shell: bash

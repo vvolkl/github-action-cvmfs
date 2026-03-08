@@ -20,6 +20,7 @@ By default 	`*.cern.ch, *.egi.eu, *.opensciencegrid.org *.hsf.org` repositories 
 
 ## Optional Parameters
 The following parameters are supported:
+- `actions_cache`: Enable a GitHub Actions cache for the persistent contents of `cvmfs_cache_base`. Requires `cvmfs_cache_base` to be set and caches `cachedb` plus the `00`...`ff` hash directories.
 - `cvmfs_alien_cache`: If set, use an alien cache at the given location.
 - `cvmfs_alt_root_path`: If set to yes, use alternative root catalog path. Only required for fixed catalogs (tag / hash) under the alternative path.
 - `cvmfs_authz_helper`: Full path to an authz helper, overwrites the helper hint in the catalog.
