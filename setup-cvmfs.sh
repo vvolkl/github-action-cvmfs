@@ -44,16 +44,12 @@ if [ "$(uname)" == "Linux" ]; then
   fi
   if [ -n "${CVMFS_CACHE_BASE}" ]; then
     echo "::group::Preparing cvmfs cache base"
-    runner_group=$(id -gn)
-    if ! id -nG cvmfs | tr ' ' '\n' | grep -Fx "${runner_group}" >/dev/null; then
-      sudo usermod -a -G "${runner_group}" cvmfs
-    fi
+    mkdir -p "${CVMFS_CACHE_BASE}"
+    sudo chown -R cvmfs:root "${CVMFS_CACHE_BASE}"
+    sudo chmod -R a+rwX "${CVMFS_CACHE_BASE}"
+    sudo find "${CVMFS_CACHE_BASE}" -type d -exec chmod a+rwx {} +
     id cvmfs
     sudo -u cvmfs id
-    mkdir -p "${CVMFS_CACHE_BASE}"
-    sudo chown -R cvmfs:"${runner_group}" "${CVMFS_CACHE_BASE}"
-    sudo chmod -R ug+rwX,o+rX "${CVMFS_CACHE_BASE}"
-    sudo find "${CVMFS_CACHE_BASE}" -type d -exec chmod ug+rwx,g+s,o+rx {} +
     ls -ld "${CVMFS_CACHE_BASE}"
     sudo -u cvmfs test -w "${CVMFS_CACHE_BASE}"
     sudo -u cvmfs env CVMFS_CACHE_BASE="${CVMFS_CACHE_BASE}" bash <<'EOF'
@@ -73,6 +69,7 @@ EOF
     ls -ld "${CVMFS_CACHE_BASE}" "${CVMFS_CACHE_BASE}/shared"
     sudo find "${CVMFS_CACHE_BASE}/shared" -maxdepth 1 -type d | sort | head -n 10
     test -r "${CVMFS_CACHE_BASE}"
+    test -w "${CVMFS_CACHE_BASE}"
     echo "::endgroup::"
   fi
 elif [ "$(uname)" == "Darwin" ]; then

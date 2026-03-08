@@ -41,7 +41,7 @@ inputs:
     required: false
     default: ''
   cvmfs_cache_base:
-    description: 'Location (directory) of the CernVM-FS cache. The cvmfs user must be able to traverse all parent directories and write this directory; on GitHub-hosted runners prefer a subdirectory under the GitHub workspace so the action can prepare it for both the cvmfs user and the runner user.'
+    description: 'Location (directory) of the CernVM-FS cache. The cvmfs user must be able to traverse all parent directories and write this directory; on GitHub-hosted runners prefer a path such as /opt/cvmfs-cache so the action can prepare it for both the cvmfs user and the runner user.'
     required: false
     default: ''
   cvmfs_catalog_watermark:
@@ -360,6 +360,11 @@ runs:
         key: cvmfs-apt-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}
         path: |
           ${{ inputs.apt_cache }}
+    - if: ${{ inputs.cvmfs_cache_base != '' }}
+      run: |
+        sudo mkdir -p "${{ inputs.cvmfs_cache_base }}"
+        sudo chmod a+rwx "${{ inputs.cvmfs_cache_base }}"
+      shell: bash
     - uses: actions/cache@v5
       if: ${{ inputs.actions_cache == 'true' && inputs.cvmfs_cache_base != '' && inputs.cvmfs_shared_cache != 'no' }}
       with:
