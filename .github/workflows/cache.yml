@@ -135,7 +135,8 @@ jobs:
         if: ${{ always() }}
         run: |
           if [ -d "${{ env.CVMFS_CACHE_BASE }}" ]; then
-            sudo chmod -R a+rX,u+w "${{ env.CVMFS_CACHE_BASE }}"
+            sudo chmod -R a+rwX "${{ env.CVMFS_CACHE_BASE }}"
+            sudo find "${{ env.CVMFS_CACHE_BASE }}" -type d -exec chmod a+rwx {} +
           fi
 
   reuse-cache:
