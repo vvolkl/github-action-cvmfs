@@ -9,7 +9,7 @@ inputs:
     required: false
     default: 'apt_cache'
   actions_cache:
-    description: 'Enable a GitHub Actions cache for persistent CernVM-FS cache contents under cvmfs_cache_base.'
+    description: 'Enable a GitHub Actions cache for persistent CernVM-FS cache contents under cvmfs_cache_base. With the default shared cache, cachedb and object directories live under the shared subdirectory.'
     required: false
     default: 'false'
   cvmfs_alien_cache:
@@ -361,7 +361,14 @@ runs:
         path: |
           ${{ inputs.apt_cache }}
     - uses: actions/cache@v5
-      if: ${{ inputs.actions_cache == 'true' && inputs.cvmfs_cache_base != '' }}
+      if: ${{ inputs.actions_cache == 'true' && inputs.cvmfs_cache_base != '' && inputs.cvmfs_shared_cache != 'no' }}
+      with:
+        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}
+        path: |
+          ${{ inputs.cvmfs_cache_base }}/shared/cachedb
+          ${{ inputs.cvmfs_cache_base }}/shared/[0-9a-f][0-9a-f]
+    - uses: actions/cache@v5
+      if: ${{ inputs.actions_cache == 'true' && inputs.cvmfs_cache_base != '' && inputs.cvmfs_shared_cache == 'no' }}
       with:
         key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}
         path: |
