@@ -56,8 +56,8 @@ jobs:
           fi
           echo "### Exercise /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
-          echo "### Resolve a ROOT library directory to exercise broader cache content ###"
-          show_exact_root_io_diagnostics() {
+          echo "### Resolve a Sherpa subtree target to exercise broader cache content ###"
+          show_exact_target_io_diagnostics() {
             echo "### journalctl: autofs unit ###"
             sudo journalctl -u autofs --no-pager -n 100 || true
             echo "### journalctl: filtered cvmfs/autofs/I-O lines ###"
@@ -67,32 +67,39 @@ jobs:
               sudo tail -n 400 /var/log/syslog | grep -Ei 'cvmfs|autofs|Input/output|I/O error|sft\.cern\.ch' | tail -n 120 || true
             fi
           }
-          exact_root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
-          if ! ls "${exact_root_tree_lib}"; then
-            echo "::warning::Exact ROOT libTree.so access failed; dumping CVMFS/autofs diagnostics before fallback"
-            show_exact_root_io_diagnostics
+          exact_sherpa_bin=/cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa/3.0.1p3-c94f3/x86_64-el9-gcc14-opt/bin/Sherpa
+          if ! ls "${exact_sherpa_bin}"; then
+            echo "::warning::Exact Sherpa access failed; dumping CVMFS/autofs diagnostics before fallback"
+            show_exact_target_io_diagnostics
           fi
-          root_tree_lib="${exact_root_tree_lib}"
-          if [ ! -e "${root_tree_lib}" ]; then
-            root_tree_lib=$({
-              find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-*/lib/libTree.so' -print 2>/dev/null
-              find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/lib/libTree.so' -print 2>/dev/null
+          sherpa_bin="${exact_sherpa_bin}"
+          if [ ! -e "${sherpa_bin}" ]; then
+            sherpa_bin=$({
+              find /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa -path '*/x86_64-*/bin/Sherpa' -print 2>/dev/null
+              find /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa -path '*/bin/Sherpa' -print 2>/dev/null
             } | sort -u | tail -n 1)
           fi
-          if [ -z "${root_tree_lib}" ]; then
-            echo "::error::Could not find any fallback ROOT libTree.so under /cvmfs/sft.cern.ch/lcg/releases/ROOT"
+          if [ -z "${sherpa_bin}" ]; then
+            echo "::error::Could not find any fallback Sherpa binary under /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa"
             exit 1
           fi
-          root_lib_dir=${root_tree_lib%/libTree.so}
-          printf 'Selected ROOT library directory: %s\n' "${root_lib_dir}"
-          echo "### Read ROOT libraries to populate more cached objects ###"
-          find "${root_lib_dir}" -maxdepth 1 \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' \) | sort > "${RUNNER_TEMP}/root-libs.txt"
-          test -s "${RUNNER_TEMP}/root-libs.txt"
-          grep -F 'libTree.so' "${RUNNER_TEMP}/root-libs.txt"
-          while IFS= read -r lib; do
-            cat "${lib}" > /dev/null
-          done < "${RUNNER_TEMP}/root-libs.txt"
-          printf 'Read %s ROOT library entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/root-libs.txt")" "${root_lib_dir}"
+          sherpa_bin_dir=${sherpa_bin%/Sherpa}
+          sherpa_prefix_dir=${sherpa_bin_dir%/bin}
+          sherpa_lib_dir=${sherpa_prefix_dir}/lib
+          printf 'Selected Sherpa binary: %s\n' "${sherpa_bin}"
+          echo "### Read Sherpa bin/lib contents to populate more cached objects ###"
+          {
+            find "${sherpa_bin_dir}" -maxdepth 1 \( -type f -o -type l \) | sort
+            if [ -d "${sherpa_lib_dir}" ]; then
+              find "${sherpa_lib_dir}" -maxdepth 1 \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' \) | sort
+            fi
+          } | awk '!seen[$0]++' > "${RUNNER_TEMP}/sherpa-files.txt"
+          test -s "${RUNNER_TEMP}/sherpa-files.txt"
+          grep -F '/Sherpa' "${RUNNER_TEMP}/sherpa-files.txt"
+          while IFS= read -r path; do
+            cat "${path}" > /dev/null
+          done < "${RUNNER_TEMP}/sherpa-files.txt"
+          printf 'Read %s Sherpa-related entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/sherpa-files.txt")" "${sherpa_prefix_dir}"
           echo "### Probe after first repository access ###"
           set +e
           sudo cvmfs_config probe
@@ -191,8 +198,8 @@ jobs:
           }
           echo "### Reuse /cvmfs/sft.cern.ch ###"
           ls /cvmfs/sft.cern.ch
-          echo "### Resolve the ROOT library directory used for targeted reuse ###"
-          show_exact_root_io_diagnostics() {
+          echo "### Resolve the Sherpa target used for targeted reuse ###"
+          show_exact_target_io_diagnostics() {
             echo "### journalctl: autofs unit ###"
             sudo journalctl -u autofs --no-pager -n 100 || true
             echo "### journalctl: filtered cvmfs/autofs/I-O lines ###"
@@ -202,47 +209,53 @@ jobs:
               sudo tail -n 400 /var/log/syslog | grep -Ei 'cvmfs|autofs|Input/output|I/O error|sft\.cern\.ch' | tail -n 120 || true
             fi
           }
-          exact_root_tree_lib=/cvmfs/sft.cern.ch/lcg/releases/ROOT/6.36.02-1f134/x86_64-ubuntu2404-gcc13-opt/lib/libTree.so
-          if ! ls "${exact_root_tree_lib}"; then
-            echo "::warning::Exact ROOT libTree.so access failed; dumping CVMFS/autofs diagnostics before fallback"
-            show_exact_root_io_diagnostics
+          exact_sherpa_bin=/cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa/3.0.1p3-c94f3/x86_64-el9-gcc14-opt/bin/Sherpa
+          if ! ls "${exact_sherpa_bin}"; then
+            echo "::warning::Exact Sherpa access failed; dumping CVMFS/autofs diagnostics before fallback"
+            show_exact_target_io_diagnostics
           fi
-          root_tree_lib="${exact_root_tree_lib}"
-          if [ ! -e "${root_tree_lib}" ]; then
-            root_tree_lib=$({
-              find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/x86_64-*/lib/libTree.so' -print 2>/dev/null
-              find /cvmfs/sft.cern.ch/lcg/releases/ROOT -path '*/lib/libTree.so' -print 2>/dev/null
+          sherpa_bin="${exact_sherpa_bin}"
+          if [ ! -e "${sherpa_bin}" ]; then
+            sherpa_bin=$({
+              find /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa -path '*/x86_64-*/bin/Sherpa' -print 2>/dev/null
+              find /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa -path '*/bin/Sherpa' -print 2>/dev/null
             } | sort -u | tail -n 1)
           fi
-          if [ -z "${root_tree_lib}" ]; then
-            echo "::error::Could not find any fallback ROOT libTree.so under /cvmfs/sft.cern.ch/lcg/releases/ROOT"
+          if [ -z "${sherpa_bin}" ]; then
+            echo "::error::Could not find any fallback Sherpa binary under /cvmfs/sft.cern.ch/lcg/releases/MCGenerators/sherpa"
             exit 1
           fi
-          root_lib_dir=${root_tree_lib%/libTree.so}
-          printf 'Selected ROOT library directory: %s\n' "${root_lib_dir}"
+          sherpa_bin_dir=${sherpa_bin%/Sherpa}
+          sherpa_prefix_dir=${sherpa_bin_dir%/bin}
+          sherpa_lib_dir=${sherpa_prefix_dir}/lib
+          printf 'Selected Sherpa binary: %s\n' "${sherpa_bin}"
           echo "### Inspect restored cache state via cvmfs_talk before targeted reuse ###"
           sudo cvmfs_talk -i sft.cern.ch cache instance || true
           sudo cvmfs_talk -i sft.cern.ch cache size || true
           sudo cvmfs_talk -i sft.cern.ch cache list > "${RUNNER_TEMP}/cache-list-before.txt"
-          if grep -F 'libTree.so' "${RUNNER_TEMP}/cache-list-before.txt"; then
-            echo "libTree.so already appears in cache list before the targeted reuse read"
+          if grep -F 'Sherpa' "${RUNNER_TEMP}/cache-list-before.txt"; then
+            echo "Sherpa already appears in cache list before the targeted reuse read"
           else
-            echo "::notice::libTree.so not yet visible in cache list before the targeted reuse read"
+            echo "::notice::Sherpa not yet visible in cache list before the targeted reuse read"
           fi
           show_cvmfs_talk_metrics before-targeted-reuse
-          echo "### Re-read ROOT libraries to confirm cache reuse on richer content ###"
-          cat "${root_tree_lib}" > /dev/null
-          find "${root_lib_dir}" -maxdepth 1 \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' \) | sort > "${RUNNER_TEMP}/root-libs.txt"
-          test -s "${RUNNER_TEMP}/root-libs.txt"
-          grep -F 'libTree.so' "${RUNNER_TEMP}/root-libs.txt"
-          while IFS= read -r lib; do
-            cat "${lib}" > /dev/null
-          done < "${RUNNER_TEMP}/root-libs.txt"
-          printf 'Re-read %s ROOT library entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/root-libs.txt")" "${root_lib_dir}"
-          echo "### Require libTree.so in cvmfs_talk cache list during reuse ###"
+          echo "### Re-read Sherpa bin/lib contents to confirm cache reuse on richer content ###"
+          {
+            find "${sherpa_bin_dir}" -maxdepth 1 \( -type f -o -type l \) | sort
+            if [ -d "${sherpa_lib_dir}" ]; then
+              find "${sherpa_lib_dir}" -maxdepth 1 \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' \) | sort
+            fi
+          } | awk '!seen[$0]++' > "${RUNNER_TEMP}/sherpa-files.txt"
+          test -s "${RUNNER_TEMP}/sherpa-files.txt"
+          grep -F '/Sherpa' "${RUNNER_TEMP}/sherpa-files.txt"
+          while IFS= read -r path; do
+            cat "${path}" > /dev/null
+          done < "${RUNNER_TEMP}/sherpa-files.txt"
+          printf 'Re-read %s Sherpa-related entries from %s\n' "$(wc -l < "${RUNNER_TEMP}/sherpa-files.txt")" "${sherpa_prefix_dir}"
+          echo "### Require Sherpa in cvmfs_talk cache list during reuse ###"
           sudo cvmfs_talk -i sft.cern.ch cache list > "${RUNNER_TEMP}/cache-list-after.txt"
-          if ! grep -F 'libTree.so' "${RUNNER_TEMP}/cache-list-after.txt"; then
-            echo "::error::libTree.so did not appear in cvmfs_talk cache list after the targeted reuse read"
+          if ! grep -F 'Sherpa' "${RUNNER_TEMP}/cache-list-after.txt"; then
+            echo "::error::Sherpa did not appear in cvmfs_talk cache list after the targeted reuse read"
             sed -n '1,120p' "${RUNNER_TEMP}/cache-list-after.txt"
             exit 1
           fi
