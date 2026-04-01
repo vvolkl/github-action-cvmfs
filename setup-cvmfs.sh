@@ -55,6 +55,12 @@ if [ "$(uname)" == "Linux" ]; then
     if [ "${CVMFS_SHARED_CACHE}" != "no" ]; then
       mkdir -p "${CVMFS_CACHE_BASE}/shared"
     fi
+    # Ensure the cvmfs user can traverse all parent directories of the cache
+    _dir="${CVMFS_CACHE_BASE}"
+    while [ "$_dir" != "/" ]; do
+      sudo chmod o+x "$_dir"
+      _dir="$(dirname "$_dir")"
+    done
     sudo chown -R cvmfs:root "${CVMFS_CACHE_BASE}"
     sudo chmod -R a+rwX "${CVMFS_CACHE_BASE}"
     sudo find "${CVMFS_CACHE_BASE}" -type d -exec chmod a+rwx {} +
