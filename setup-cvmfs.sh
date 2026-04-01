@@ -61,14 +61,25 @@ if [ "$(uname)" == "Linux" ]; then
       sudo chmod o+x "$_dir"
       _dir="$(dirname "$_dir")"
     done
-    sudo chown -R cvmfs:root "${CVMFS_CACHE_BASE}"
+    # Add the cvmfs user to the runner group so that files it creates inside
+    # the setgid cache tree are accessible to the runner user during the
+    # actions/cache post-job save step.
+    if getent group runner >/dev/null 2>&1; then
+      sudo usermod -aG runner cvmfs
+    fi
+    # Own the cache as cvmfs:runner with the setgid bit so every new file/dir
+    # inherits group "runner" regardless of the cvmfs daemon's umask.
+    sudo chown -R cvmfs:runner "${CVMFS_CACHE_BASE}"
     sudo chmod -R a+rwX "${CVMFS_CACHE_BASE}"
-    sudo find "${CVMFS_CACHE_BASE}" -type d -exec chmod a+rwx {} +
+    sudo find "${CVMFS_CACHE_BASE}" -type d -exec chmod g+rwxs,a+rwx {} +
     # Set default POSIX ACLs so that files/directories created later by the
-    # cvmfs user (during the job) are world-readable.  This is required for
-    # the actions/cache post-job save step, which runs as the runner user.
+    # cvmfs user (during the job) are world-readable and group-readable.
+    # This is required for the actions/cache post-job save step, which runs
+    # as the runner user.
     if command -v setfacl >/dev/null 2>&1; then
+      sudo setfacl -R -d -m g::rwX "${CVMFS_CACHE_BASE}"
       sudo setfacl -R -d -m o::rwX "${CVMFS_CACHE_BASE}"
+      sudo setfacl -R -m g::rwX "${CVMFS_CACHE_BASE}"
       sudo setfacl -R -m o::rwX "${CVMFS_CACHE_BASE}"
     fi
     id cvmfs
