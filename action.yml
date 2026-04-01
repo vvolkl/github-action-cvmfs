@@ -12,7 +12,7 @@ inputs:
     description: 'If set to yes, cache APT package lists in addition to .deb packages. This speeds up the action, but may require manual intervention to clear the cache when gh actions runner images are updated'
     required: false
     default: 'no'
-  actions_cache:
+  actions_cache_cvmfs:
     description: 'Enable a GitHub Actions cache for persistent CernVM-FS cache contents under cvmfs_cache_base. With the default shared cache, cachedb and object directories live under the shared subdirectory.'
     required: false
     default: 'no'
@@ -20,6 +20,10 @@ inputs:
     description: 'Maximum size in MB of the CernVM-FS cache to persist in the GitHub Actions cache. Before saving, the cache is trimmed with cvmfs_talk cleanup. Set to 0 to disable trimming.'
     required: false
     default: '4096'
+  actions_cache_key_suffix:
+    description: 'Suffix appended to the GitHub Actions cache key for the CernVM-FS cache. Defaults to the workflow name (github.workflow), which gives each workflow its own cache. Override to share a cache across workflows or isolate caches within a workflow.'
+    required: false
+    default: ''
   cvmfs_alien_cache:
     description: 'If set, use an alien cache at the given location.'
     required: false
@@ -49,7 +53,7 @@ inputs:
     required: false
     default: ''
   cvmfs_cache_base:
-    description: 'Location (directory) of the CernVM-FS cache. The cvmfs user must be able to traverse all parent directories and write this directory. When actions_cache is true and this is left empty, it defaults to $HOME/.cvmfs-cache.'
+    description: 'Location (directory) of the CernVM-FS cache. The cvmfs user must be able to traverse all parent directories and write this directory. When actions_cache_cvmfs is true and this is left empty, it defaults to $HOME/.cvmfs-cache.'
     required: false
     default: ''
   cvmfs_catalog_watermark:
@@ -346,7 +350,7 @@ runs:
     - id: resolve-cache-base
       run: |
         cache_base="${{ inputs.cvmfs_cache_base }}"
-        if [ -z "$cache_base" ] && [ "${{ inputs.actions_cache }}" == "true" ]; then
+        if [ -z "$cache_base" ] && [ "${{ inputs.actions_cache_cvmfs }}" == "true" ]; then
           cache_base="${HOME}/.cvmfs-cache"
         fi
         echo "path=${cache_base}" >> $GITHUB_OUTPUT
@@ -382,20 +386,20 @@ runs:
         sudo chmod a+rwx "${{ steps.resolve-cache-base.outputs.path }}"
       shell: bash
     - uses: actions/cache@v5
-      if: ${{ inputs.actions_cache == 'true' && steps.resolve-cache-base.outputs.path != '' && inputs.cvmfs_shared_cache != 'no' }}
+      if: ${{ inputs.actions_cache_cvmfs == 'true' && steps.resolve-cache-base.outputs.path != '' && inputs.cvmfs_shared_cache != 'no' }}
       with:
-        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ github.run_id }}
+        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_key_suffix || github.workflow }}-${{ github.run_id }}
         restore-keys: |
-          cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-
+          cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_key_suffix || github.workflow }}-
         path: |
           ${{ steps.resolve-cache-base.outputs.path }}/shared/cachedb
           ${{ steps.resolve-cache-base.outputs.path }}/shared/[0-9a-f][0-9a-f]
     - uses: actions/cache@v5
-      if: ${{ inputs.actions_cache == 'true' && steps.resolve-cache-base.outputs.path != '' && inputs.cvmfs_shared_cache == 'no' }}
+      if: ${{ inputs.actions_cache_cvmfs == 'true' && steps.resolve-cache-base.outputs.path != '' && inputs.cvmfs_shared_cache == 'no' }}
       with:
-        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ github.run_id }}
+        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_key_suffix || github.workflow }}-${{ github.run_id }}
         restore-keys: |
-          cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-
+          cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_key_suffix || github.workflow }}-
         path: |
           ${{ steps.resolve-cache-base.outputs.path }}/cachedb
           ${{ steps.resolve-cache-base.outputs.path }}/[0-9a-f][0-9a-f]
@@ -486,7 +490,7 @@ runs:
         CVMFS_UBUNTU_DEB_LOCATION: ${{ inputs.cvmfs_ubuntu_deb_location }}
         CVMFS_MACOS_PKG_LOCATION: ${{ inputs.cvmfs_macos_pkg_location }}
         CVMFS_CONFIG_PACKAGE: ${{ inputs.cvmfs_config_package }}
-    - if: ${{ inputs.actions_cache == 'true' && steps.resolve-cache-base.outputs.path != '' && inputs.cvmfs_cache_max_size != '0' }}
+    - if: ${{ inputs.actions_cache_cvmfs == 'true' && steps.resolve-cache-base.outputs.path != '' && inputs.cvmfs_cache_max_size != '0' }}
       run: |
         # Trim the CernVM-FS cache to the configured maximum size
         if [ -n "${{ inputs.cvmfs_repositories }}" ]; then
