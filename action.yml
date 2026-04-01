@@ -145,7 +145,7 @@ inputs:
     required: false
     default: 'DIRECT'
   cvmfs_ignore_signature:
-    description: 'When set to yes, don’t verify CernVM-FS file catalog signatures.'
+    description: 'When set to yes, don't verify CernVM-FS file catalog signatures.'
     required: false
     default: ''
   cvmfs_initial_generation:
@@ -205,7 +205,7 @@ inputs:
     required: false
     default: ''
   cvmfs_nfs_interleaved_inodes:
-    description: 'In NFS mode, use only inodes of the form an+b, specified as “b%a”.'
+    description: 'In NFS mode, use only inodes of the form an+b, specified as "b%a".'
     required: false
     default: ''
   cvmfs_nfs_shared:
@@ -217,7 +217,7 @@ inputs:
     required: false
     default: ''
   cvmfs_oom_score_adj:
-    description: 'Set the Linux kernel’s out-of-memory killer priority for the CernVM-FS client [-1000 - 1000].'
+    description: 'Set the Linux kernel's out-of-memory killer priority for the CernVM-FS client [-1000 - 1000].'
     required: false
     default: ''
   cvmfs_pac_urls:
@@ -265,7 +265,7 @@ inputs:
     required: false
     default: ''
   cvmfs_server_cache_mode:
-    description: 'Enable special cache semantics for a client used as a publisher’s repository base line.'
+    description: 'Enable special cache semantics for a client used as a publisher's repository base line.'
     required: false
     default: ''
   cvmfs_server_url:
@@ -317,9 +317,9 @@ inputs:
     required: false
     default: ''
   cvmfs_user:
-    description: 'Sets the gid and uid mount options. Don’t touch or overwrite.'
+    description: 'Sets the gid and uid mount options. Don't touch or overwrite.'
     required: false
-    default: ''
+    default: 'runner'
   cvmfs_usyslog:
     description: 'All messages that normally are logged to syslog are re-directed to the given file. This file can grow up to 500kB and there is one step of log rotation. Required for $mu$CernVM.'
     required: false
