@@ -20,7 +20,7 @@ inputs:
     description: 'Maximum size in MB of the CernVM-FS cache to persist in the GitHub Actions cache. Before saving, the cache is trimmed with cvmfs_talk cleanup. Set to 0 to disable trimming.'
     required: false
     default: '4096'
-  actions_cache_key_suffix:
+  actions_cache_cvmfs_key_suffix:
     description: 'Suffix appended to the GitHub Actions cache key for the CernVM-FS cache. Defaults to the workflow name (github.workflow), which gives each workflow its own cache. Override to share a cache across workflows or isolate caches within a workflow.'
     required: false
     default: ''
@@ -388,18 +388,18 @@ runs:
     - uses: actions/cache@v5
       if: ${{ inputs.actions_cache_cvmfs == 'true' && steps.resolve-cache-base.outputs.path != '' && inputs.cvmfs_shared_cache != 'no' }}
       with:
-        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_key_suffix || github.workflow }}-${{ github.run_id }}
+        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_cvmfs_key_suffix || github.workflow }}-${{ github.run_id }}
         restore-keys: |
-          cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_key_suffix || github.workflow }}-
+          cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_cvmfs_key_suffix || github.workflow }}-
         path: |
           ${{ steps.resolve-cache-base.outputs.path }}/shared/cachedb
           ${{ steps.resolve-cache-base.outputs.path }}/shared/[0-9a-f][0-9a-f]
     - uses: actions/cache@v5
       if: ${{ inputs.actions_cache_cvmfs == 'true' && steps.resolve-cache-base.outputs.path != '' && inputs.cvmfs_shared_cache == 'no' }}
       with:
-        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_key_suffix || github.workflow }}-${{ github.run_id }}
+        key: cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_cvmfs_key_suffix || github.workflow }}-${{ github.run_id }}
         restore-keys: |
-          cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_key_suffix || github.workflow }}-
+          cvmfs-cache-${{ steps.lsb-release.outputs.id-release }}-${{ steps.lsb-release.outputs.arch }}-${{ steps.lsb-release.outputs.cvmfs_action_version }}-${{ inputs.actions_cache_cvmfs_key_suffix || github.workflow }}-
         path: |
           ${{ steps.resolve-cache-base.outputs.path }}/cachedb
           ${{ steps.resolve-cache-base.outputs.path }}/[0-9a-f][0-9a-f]
